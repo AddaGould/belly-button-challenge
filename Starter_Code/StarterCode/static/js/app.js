@@ -1,16 +1,46 @@
 // 1. Use D3 to read in samples.json
 let url = "https://2u-data-curriculum-team.s3.amazonaws.com/dataviz-classroom/v1.1/14-Interactive-Web-Visualizations/02-Homework/samples.json";
 
-// Fetch the JSON data and initialize the visualizations
-d3.json(url).then(function(data) {
-    // 2. Initialize the visualizations
-    init(data);
-    createBubbleChart(data);
-    updatePlotly(data, 0); // Initial plot update with the first sample
-});
+// Function to fetch data and initialize visualizations
+function init() {
+    // Fetch the JSON data
+    d3.json(url).then(function(data) {
+        // Initialize the visualizations
+        createBarChart(data);
+        createBubbleChart(data);
+        
+        // Populate dropdown menu with sample IDs
+        populateDropdown(data);
 
-// 2. Create a horizontal bar chart w/ dropdown menu
-function init(data) {
+        // Event listener for dropdown menu
+        d3.select("#selDataset").on("change", function() {
+            // Get the selected sample ID
+            let selectedSampleID = +d3.select(this).property("value");
+
+            // Update metadata and visualizations
+            buildMetadata(data, selectedSampleID);
+            updateVisualizations(data, selectedSampleID);
+        });
+
+        // Display metadata and visualizations for the first sample
+        let initialSampleID = data.metadata[0].id;
+        buildMetadata(data, initialSampleID);
+        updateVisualizations(data, initialSampleID);
+    });
+}
+
+// Function to populate dropdown menu with sample IDs
+function populateDropdown(data) {
+    let dropdownMenu = d3.select("#selDataset");
+    dropdownMenu.html(""); // Clear existing options
+
+    data.metadata.forEach(sample => {
+        dropdownMenu.append("option").attr("value", sample.id).text(`Sample ${sample.id}`);
+    });
+}
+
+// 2. Function to create horizontal bar chart
+function createBarChart(data) {
     // Default dataset
     let defaultDataset = data.samples[0];
 
@@ -37,17 +67,6 @@ function init(data) {
     };
 
     Plotly.newPlot("bar", dataBar, layout);
-
-    // Selecting the dropdown menu
-    let dropdownMenu = d3.select("#selDataset");
-
-    // Populate dropdown menu with options
-    data.samples.forEach((sample, index) => {
-        dropdownMenu.append("option").attr("value", index).text(`Sample ${index}`);
-    });
-
-    // Event listener for dropdown menu
-    dropdownMenu.on("change", updatePlotly);
 }
 
 // 3. Create a bubble chart to display each sample
@@ -88,10 +107,22 @@ function createBubbleChart(data) {
     Plotly.newPlot('bubble', dataBubble, layout);
 }
 
-// 5. Update all visualizations w/ user selection
-function updatePlotly(data, selectedSampleIndex) {
+// 4. Function to display the sample metadata
+function buildMetadata(data, sampleID) {
+    let metadata = data.metadata.find(sample => sample.id === sampleID);
+    let PANEL = d3.select("#sample-metadata");
+
+    PANEL.html(""); // Clear any existing metadata
+
+    Object.entries(metadata).forEach(([key, value]) => {
+        PANEL.append("h6").text(`${key.toUpperCase()}: ${value}`);
+    });
+}
+
+// 5. Function to update visualizations based on selected sample
+function updateVisualizations(data, sampleID) {
     // Get the selected dataset
-    let selectedDataset = data.samples[selectedSampleIndex];
+    let selectedDataset = data.samples.find(sample => sample.id == sampleID);
 
     // Extracting data for selected dataset
     let otuIDs = selectedDataset.otu_ids.slice(0, 10).reverse();
@@ -112,24 +143,8 @@ function updatePlotly(data, selectedSampleIndex) {
     Plotly.restyle('bubble', 'marker.colorbar.title', 'OTU ID');
 
     // Update display of sample metadata
-    displayMetadata(selectedDataset.metadata);
+    buildMetadata(data, sampleID);
 }
 
-// 4. Display sample metadata key-value pairs in JSON object
-function displayMetadata(metadata) {
-    // Get the container element
-    let container = document.getElementById("metadata-container");
-
-    // Clear any existing content
-    container.innerHTML = "";
-
-    // Iterate over the key-value pairs and create <p> elements to display them
-    for (let key in metadata) {
-        if (metadata.hasOwnProperty(key)) {
-            let value = metadata[key];
-            let paragraph = document.createElement("p");
-            paragraph.textContent = `${key}: ${value}`;
-            container.appendChild(paragraph);
-        }
-    }
-}
+// 6. Call the init function to start the process
+init();
